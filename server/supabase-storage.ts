@@ -46,11 +46,14 @@ export class SupabaseStorage implements IStorage {
           fontSize: 12,
           width: 400,
           height: 500,
-          text: 'Чем еще могу помочь?'
+          text: 'Чем еще могу помочь?',
+          buttonColor: '#4F46E5',
+          pulsation: true
         }
       },
       ui: {
         enabled: false,
+        colorSchemeEnabled: false,
         colors: {
           primary: '#19c37d',
           secondary: '#f9fafb',
@@ -352,11 +355,14 @@ export class SupabaseStorage implements IStorage {
       const { data, error } = await supabase
         .from(this.tableNames.messages)
         .insert({
-          id: message.id,
           chat_id: message.chatId,
           content: message.content,
           role: message.role,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          file_url: message.fileUrl || null,
+          file_name: message.fileName || null,
+          file_type: message.fileType || null,
+          file_size: message.fileSize || null
         })
         .select()
         .single();
@@ -435,11 +441,14 @@ export class SupabaseStorage implements IStorage {
             fontSize: data.widget_font_size || 12,
             width: data.widget_width || 400,
             height: data.widget_height || 500,
-            text: data.widget_text || 'Чем еще могу помочь?'
+            text: data.widget_text || 'Чем еще могу помочь?',
+            buttonColor: data.widget_button_color || '#4F46E5',
+            pulsation: data.widget_pulsation !== undefined ? data.widget_pulsation : true
           }
         },
         ui: {
           enabled: data.ui_enabled !== undefined ? data.ui_enabled : false,
+          colorSchemeEnabled: data.ui_color_scheme_enabled !== undefined ? data.ui_color_scheme_enabled : false,
           colors: {
             primary: data.ui_color_primary || '#19c37d',
             secondary: data.ui_color_secondary || '#f9fafb',
@@ -646,6 +655,7 @@ export class SupabaseStorage implements IStorage {
     return {
       id: data.id,
       username: data.username,
+      email: data.email || null,
       password: data.password || '********', // Скрываем пароль в возвращаемых данных
       lastActive: data.last_active
     };
@@ -673,7 +683,11 @@ export class SupabaseStorage implements IStorage {
       chatId: data.chat_id,
       content: data.content,
       role: data.role,
-      createdAt: data.created_at
+      createdAt: data.created_at,
+      fileUrl: data.file_url || null,
+      fileName: data.file_name || null,
+      fileType: data.file_type || null,
+      fileSize: data.file_size || null
     };
   }
 }
