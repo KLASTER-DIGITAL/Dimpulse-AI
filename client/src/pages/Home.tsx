@@ -344,7 +344,7 @@ const Home = () => {
           <div className="flex flex-col items-center justify-center h-full relative">
             <div className="text-center animate-fadeIn">
               <h1 className="text-4xl font-semibold mb-2 animate-textAppear">{getTimeOfDayGreeting()}!</h1>
-              <p className="text-2xl text-gray-300 mb-10 animate-textAppear animation-delay-300">Какие у вас задачи? Давайте мы поможем решить!</p>
+              <p className="text-base text-gray-300 mb-10 animate-textAppear animation-delay-300">Какие у вас задачи? Давайте мы поможем решить!</p>
 
               {/* Отображение прикрепленных файлов */}
               {welcomeFiles.length > 0 && (

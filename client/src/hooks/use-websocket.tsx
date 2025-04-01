@@ -50,6 +50,73 @@ export const useWebSocket = (
     maxReconnectAttempts = 5,
   } = options;
   
+  // Опрос сервера для получения обновлений для текущего чата
+  const pollForUpdates = useCallback(async () => {
+    if (!activeChatIdRef.current) {
+      return;
+    }
+    
+    try {
+      // Делаем запрос к API для получения обновлений для текущего чата
+      // Обычно это будет маршрут /api/chats/:chatId/messages с параметром since=timestamp
+      const timestamp = lastMessageTimestamp.current || new Date().toISOString();
+      const response = await apiRequest(`/api/chats/${activeChatIdRef.current}?t=${Date.now()}`);
+      
+      // Если чат обновился с момента последнего опроса, обрабатываем обновления
+      if (response && response.messages) {
+        // Проверяем, есть ли новые сообщения
+        const messages = response.messages;
+        if (messages.length > 0) {
+          // Обновляем последний timestamp
+          lastMessageTimestamp.current = new Date().toISOString();
+          
+          // Эмулируем событие typing для совместимости с остальным кодом
+          onMessage?.({  
+            type: 'typing',
+            chatId: activeChatIdRef.current,
+            status: 'started',
+            timestamp: new Date().toISOString()
+          });
+          
+          // Для каждого сообщения от ассистента имитируем событие typing finished
+          messages.forEach((message: { role: string, id: string }) => {
+            if (message.role === 'assistant') {
+              onMessage?.({  
+                type: 'typing',
+                chatId: activeChatIdRef.current,
+                status: 'finished',
+                messageId: message.id,
+                timestamp: new Date().toISOString()
+              });
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error polling for updates:', error);
+      // Не меняем статус при ошибке опроса, просто логируем
+    }
+  }, [onMessage]);
+  
+  // Функция запуска polling режима
+  const startPolling = useCallback(() => {
+    console.log('Starting polling as fallback');
+    setStatus('open');
+    onStatusChange?.('open');
+    
+    // Отправляем сообщение о соединении для совместимости
+    onMessage?.({  
+      type: 'connection_established',
+      timestamp: new Date().toISOString()
+    });
+    
+    // Запускаем интервальный опрос
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+    pollIntervalRef.current = setInterval(pollForUpdates, reconnectInterval);
+  }, [onMessage, onStatusChange, pollForUpdates, reconnectInterval]);
+  
   // Эмуляция подключения к чату
   const joinChat = useCallback((newChatId: string) => {
     console.log(`Joining chat ${newChatId} via polling API`);
@@ -139,53 +206,7 @@ export const useWebSocket = (
     }
   }, [onMessage, onStatusChange]);
   
-  // Опрос сервера для получения обновлений для текущего чата
-  const pollForUpdates = useCallback(async () => {
-    if (!activeChatIdRef.current) {
-      return;
-    }
-    
-    try {
-      // Делаем запрос к API для получения обновлений для текущего чата
-      // Обычно это будет маршрут /api/chats/:chatId/messages с параметром since=timestamp
-      const timestamp = lastMessageTimestamp.current || new Date().toISOString();
-      const response = await apiRequest(`/api/chats/${activeChatIdRef.current}?t=${Date.now()}`);
-      
-      // Если чат обновился с момента последнего опроса, обрабатываем обновления
-      if (response && response.messages) {
-        // Проверяем, есть ли новые сообщения
-        const messages = response.messages;
-        if (messages.length > 0) {
-          // Обновляем последний timestamp
-          lastMessageTimestamp.current = new Date().toISOString();
-          
-          // Эмулируем событие typing для совместимости с остальным кодом
-          onMessage?.({
-            type: 'typing',
-            chatId: activeChatIdRef.current,
-            status: 'started',
-            timestamp: new Date().toISOString()
-          });
-          
-          // Для каждого сообщения от ассистента имитируем событие typing finished
-          messages.forEach((message: { role: string, id: string }) => {
-            if (message.role === 'assistant') {
-              onMessage?.({
-                type: 'typing',
-                chatId: activeChatIdRef.current,
-                status: 'finished',
-                messageId: message.id,
-                timestamp: new Date().toISOString()
-              });
-            }
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error polling for updates:', error);
-      // Не меняем статус при ошибке опроса, просто логируем
-    }
-  }, [onMessage]);
+  // Используем уже определенную выше функцию pollForUpdates
   
   // Создание нового WebSocket соединения с улучшенной обработкой ошибок
   const createWebSocket = useCallback(() => {
@@ -202,6 +223,7 @@ export const useWebSocket = (
       // Создаем WebSocket соединение
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
       const ws = new WebSocket(wsUrl);
       
       ws.onopen = () => {
@@ -232,9 +254,28 @@ export const useWebSocket = (
       };
       
       ws.onerror = (event) => {
-        console.error('WebSocket error:', event);
+        // Уменьшаем уровень логирования ошибок
+        if (reconnectCountRef.current === 0) {
+          console.error('WebSocket error:', event);
+        } else if (reconnectCountRef.current === 1) {
+          // Ограничиваем логи после первой ошибки
+          console.warn('WebSocket reconnection issue, will try again once');
+        }
+        
         setStatus('error');
         onStatusChange?.('error');
+        
+        // Предотвращаем повторные попытки подключения при ошибке на стороне клиента
+        reconnectCountRef.current += 1;
+        if (reconnectCountRef.current >= 2) {
+          console.log('Switching to polling mode after multiple WebSocket errors');
+          modeRef.current = 'polling';
+          
+          // Запускаем polling как fallback при ошибке соединения
+          if (!pollIntervalRef.current) {
+            startPolling();
+          }
+        }
       };
       
       ws.onclose = (event) => {
@@ -296,12 +337,30 @@ export const useWebSocket = (
         pollIntervalRef.current = setInterval(pollForUpdates, reconnectInterval);
       }
     }
-  }, [maxReconnectAttempts, onMessage, onStatusChange, pollForUpdates, reconnectInterval]);
+  }, [maxReconnectAttempts, onMessage, onStatusChange, pollForUpdates, reconnectInterval, startPolling]);
   
   // Запуск WebSocket или polling при монтировании компонента
   useEffect(() => {
-    // В режиме WebSocket пытаемся установить соединение
-    if (modeRef.current === 'websocket') {
+    // Проверяем, доступен ли WebSocket сервер
+    // Для локальной разработки начинаем сразу с polling
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log('Обнаружена локальная разработка - используем polling по умолчанию');
+      modeRef.current = 'polling';
+      
+      // Имитируем "подключение" установкой статуса
+      setStatus('open');
+      onStatusChange?.('open');
+      
+      // Отправляем начальное сообщение, имитирующее соединение
+      onMessage?.({
+        type: 'connection_established',
+        timestamp: new Date().toISOString()
+      });
+      
+      // Запускаем интервальный опрос
+      pollIntervalRef.current = setInterval(pollForUpdates, reconnectInterval);
+    } else if (modeRef.current === 'websocket') {
+      // В режиме WebSocket пытаемся установить соединение
       createWebSocket();
     } else {
       // В режиме polling запускаем опрос
