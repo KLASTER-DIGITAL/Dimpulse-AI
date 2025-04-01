@@ -10,6 +10,17 @@ export default defineConfig({
   plugins: [
     react(),
   ],
+  build: {
+    rollupOptions: {
+      external: [],
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-icons', 'recharts', 'lucide-react'],
+          ui: ['@radix-ui/react-slot', '@radix-ui/react-dropdown-menu', '@radix-ui/react-dialog']
+        }
+      }
+    }
+  },
   server: {
     proxy: {
       '/api': {
