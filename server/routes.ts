@@ -623,6 +623,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Маршрут для синхронизации настроек с Supabase
+  app.post("/api/sync-supabase-settings", async (req, res) => {
+    try {
+      // Проверяем, настроен ли Supabase
+      if (!isSupabaseConfigured()) {
+        return res.status(400).json({
+          success: false,
+          error: "Supabase не настроен. Установите переменные окружения SUPABASE_URL и SUPABASE_KEY."
+        });
+      }
+      
+      // Получаем текущие настройки
+      const settings = await storage.getSettings();
+      
+      // Обновляем настройки базы данных
+      settings.database.enabled = true;
+      settings.database.type = "supabase";
+      
+      // Сохраняем обновленные настройки
+      const updatedSettings = await storage.updateSettings(settings);
+      
+      // Перезагружаем хранилище для применения новых настроек
+      await initStorage();
+      
+      res.json({
+        success: true,
+        settings: updatedSettings
+      });
+    } catch (error) {
+      console.error("Ошибка при синхронизации настроек с Supabase:", error);
+      res.status(500).json({
+        success: false,
+        error: "Произошла ошибка при синхронизации настроек."
+      });
+    }
+  });
+  
   // Маршрут для проверки соединения с Supabase
   app.get("/api/test-supabase-connection", async (req, res) => {
     try {

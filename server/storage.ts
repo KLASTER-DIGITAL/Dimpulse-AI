@@ -430,7 +430,7 @@ let storageInstance: IStorage;
 const memStorage = new MemStorage();
 
 // Асинхронно инициализируем хранилище
-async function initStorage() {
+export async function initStorage() {
   // Загружаем настройки из MemStorage
   const settings = await memStorage.getSettings();
   

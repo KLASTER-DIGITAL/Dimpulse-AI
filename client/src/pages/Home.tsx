@@ -82,7 +82,11 @@ const Home = () => {
             role: "assistant",
             content: "typing",
             createdAt: new Date(),
-            typing: true
+            typing: true,
+            fileUrl: null,
+            fileName: null,
+            fileType: null,
+            fileSize: null
           });
         } else if (data.status === 'finished' && data.chatId === currentChatId) {
           console.log("Завершаем анимацию набора текста");
@@ -149,7 +153,11 @@ const Home = () => {
         role: "assistant",
         content: "typing",
         createdAt: new Date(),
-        typing: true
+        typing: true,
+        fileUrl: null,
+        fileName: null,
+        fileType: null,
+        fileSize: null
       });
 
       const data = await apiRequest(`/api/chats/${chatId}/messages`, {

@@ -237,6 +237,10 @@ const Cabinet = () => {
   // Состояние проверки соединения с Supabase
   const [isCheckingConnection, setIsCheckingConnection] = useState<boolean>(false);
   const [supabaseConnectionStatus, setSupabaseConnectionStatus] = useState<{success: boolean; message: string} | null>(null);
+  
+  // Состояние синхронизации с Supabase
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<{success: boolean; message: string} | null>(null);
 
   // Функция для удаления превью виджета
   const removeWidgetPreview = () => {
@@ -382,7 +386,75 @@ const Cabinet = () => {
     }
   };
 
+  // Функция для синхронизации настроек с Supabase
+  const syncWithSupabase = async () => {
+    setIsSyncing(true);
+    setSyncStatus(null);
+    
+    try {
+      // Собираем текущие настройки базы данных
+      const currentDbSettings = {
+        database: {
+          enabled: databaseEnabled,
+          type: databaseType,
+          supabase: {
+            tables: {
+              messages: messagesTable,
+              chats: chatsTable,
+              users: usersTable,
+              files: filesTable
+            },
+            schema: databaseSchema,
+            autoMigrate: autoMigrate
+          }
+        }
+      };
 
+      const result = await apiRequest("/api/sync-supabase-settings", {
+        method: "POST",
+        data: {
+          settings: currentDbSettings
+        }
+      });
+
+      setSyncStatus({
+        success: result.success,
+        message: result.message
+      });
+      
+      if (result.success && result.settings) {
+        // Обновляем локальные настройки, если получили обновленные данные с сервера
+        // Обновляем кэш запроса
+        queryClient.setQueryData(["/api/settings"], result.settings);
+      }
+    } catch (error) {
+      console.error("Ошибка при синхронизации настроек с Supabase:", error);
+      setSyncStatus({
+        success: false,
+        message: "Произошла ошибка при синхронизации настроек. Пожалуйста, попробуйте еще раз."
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+
+
+  // Автоматическая синхронизация при запуске
+  React.useEffect(() => {
+    // Проверяем, что база данных включена и тип базы - Supabase
+    if (settings?.database?.enabled && settings?.database?.type === "supabase") {
+      // Автоматическая проверка соединения
+      checkSupabaseConnection();
+    }
+  }, [settings]); // Запускаем только при изменении настроек
+  
+  // Синхронизация после успешного подключения
+  React.useEffect(() => {
+    if (supabaseConnectionStatus?.success) {
+      syncWithSupabase();
+    }
+  }, [supabaseConnectionStatus]); // Запускаем при изменении статуса подключения
 
   // Запрос статистики использования
   const { data: stats, isLoading: isLoadingStats } = useQuery({
@@ -1525,19 +1597,36 @@ const Cabinet = () => {
                             <li>SUPABASE_KEY - ключ API проекта Supabase</li>
                           </ul>
 
-                          <div className="mt-4">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={checkSupabaseConnection}
-                              disabled={isCheckingConnection}
-                            >
-                              {isCheckingConnection ? "Проверка..." : "Проверить подключение"}
-                            </Button>
+                          <div className="mt-4 space-y-2">
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={checkSupabaseConnection}
+                                disabled={isCheckingConnection}
+                              >
+                                {isCheckingConnection ? "Проверка..." : "Проверить подключение"}
+                              </Button>
+                              
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={syncWithSupabase}
+                                disabled={isSyncing || !supabaseConnectionStatus?.success}
+                              >
+                                {isSyncing ? "Синхронизация..." : "Синхронизировать с Supabase"}
+                              </Button>
+                            </div>
 
                             {supabaseConnectionStatus && (
                               <div className={`mt-2 p-2 rounded-md ${supabaseConnectionStatus.success ? 'bg-green-900' : 'bg-red-900'}`}>
                                 <p className="text-sm">{supabaseConnectionStatus.message}</p>
+                              </div>
+                            )}
+                            
+                            {syncStatus && (
+                              <div className={`mt-2 p-2 rounded-md ${syncStatus.success ? 'bg-green-900' : 'bg-red-900'}`}>
+                                <p className="text-sm">{syncStatus.message}</p>
                               </div>
                             )}
                           </div>
