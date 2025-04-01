@@ -446,23 +446,9 @@ export async function initStorage() {
   const isLocalMode = process.env.USE_LOCAL_STORAGE === 'true';
   const isVercel = process.env.VERCEL === '1';
   
-  // Если запуск на Vercel, то используем Supabase независимо от настроек
-  if (isVercel) {
-    console.log('Running on Vercel, using Supabase storage');
-    try {
-      storageInstance = new SupabaseStorage(settings);
-      return storageInstance;
-    } catch (error) {
-      console.error('Failed to initialize Supabase storage on Vercel:', error);
-      console.log('Falling back to in-memory storage');
-      storageInstance = memStorage;
-      return storageInstance;
-    }
-  }
-  
-  // Если локальный режим
-  if (isLocalMode) {
-    console.log('Running in local mode, using in-memory storage');
+  // Всегда используем локальное хранилище для версии на Vercel
+  if (isVercel || isLocalMode) {
+    console.log('Using in-memory storage');
     storageInstance = memStorage;
     return storageInstance;
   }
