@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { storage, storagePromise, MemStorage } from "./storage";
+import { storage, storagePromise, MemStorage, initStorage } from "./storage";
 import { randomUUID } from "crypto";
 import { insertChatSchema, insertMessageSchema, settingsSchema } from "@shared/schema";
 import fetch from "node-fetch";
@@ -391,56 +391,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           // Обработка всех возможных форматов ответа от webhook
           else if (data) {
+            // Определяем тип данных для TypeScript
+            const responseData = data as any;
+            
             // Вариант 1: Массив объектов с форматированными данными
-            if (Array.isArray(data)) {
-              const item = data[0];
+            if (Array.isArray(responseData)) {
+              const item = responseData[0];
               if (item) {
                 if (typeof item === 'string') {
                   aiResponse = item;
-                } else if (item.message && item.message.content) {
-                  aiResponse = item.message.content;
-                } else if (item.output) {
-                  aiResponse = item.output;
-                } else if (item.choices && item.choices[0] && item.choices[0].message && item.choices[0].message.content) {
-                  aiResponse = item.choices[0].message.content;
-                } else if (item.text) {
-                  aiResponse = item.text;
-                } else if (item.result) {
-                  aiResponse = item.result;
+                } else if (typeof item === 'object') {
+                  const objItem = item as any;
+                  if (objItem.message && objItem.message.content) {
+                    aiResponse = objItem.message.content;
+                  } else if (objItem.output) {
+                    aiResponse = objItem.output;
+                  } else if (objItem.choices && objItem.choices[0] && objItem.choices[0].message && objItem.choices[0].message.content) {
+                    aiResponse = objItem.choices[0].message.content;
+                  } else if (objItem.text) {
+                    aiResponse = objItem.text;
+                  } else if (objItem.result) {
+                    aiResponse = objItem.result;
+                  }
                 }
               }
             } 
             // Вариант 2: Объект в формате OpenAI API
-            else if (data.choices && data.choices[0]) {
-              if (data.choices[0].message && data.choices[0].message.content) {
-                aiResponse = data.choices[0].message.content;
-              } else if (data.choices[0].text) {
-                aiResponse = data.choices[0].text;
+            else if (responseData.choices && Array.isArray(responseData.choices) && responseData.choices[0]) {
+              const choice = responseData.choices[0] as any;
+              if (choice.message && choice.message.content) {
+                aiResponse = choice.message.content;
+              } else if (choice.text) {
+                aiResponse = choice.text;
               }
             }
             // Вариант 3: Простой объект с ответом
-            else if (data.response) {
-              aiResponse = data.response;
+            else if (responseData.response) {
+              aiResponse = responseData.response;
             }
             // Вариант 4: Объект с полем text или content
-            else if (data.text) {
-              aiResponse = data.text;
-            } else if (data.content) {
-              aiResponse = data.content;
+            else if (responseData.text) {
+              aiResponse = responseData.text;
+            } else if (responseData.content) {
+              aiResponse = responseData.content;
             }
             // Вариант 5: Объект с полем message (если это не сообщение об ошибке webhook)
-            else if (data.message && !data.message.includes("webhook") && !data.message.includes("not registered")) {
-              aiResponse = data.message;
+            else if (responseData.message && typeof responseData.message === 'string' && 
+                     !responseData.message.includes("webhook") && 
+                     !responseData.message.includes("not registered")) {
+              aiResponse = responseData.message;
             }
             // Вариант 6: Необработанный текст JSON
-            else if (typeof data === 'string') {
-              aiResponse = data;
+            else if (typeof responseData === 'string') {
+              aiResponse = responseData;
             }
             
             // Если ответ не обработан ни одним из вариантов, но есть объект JSON
-            if (aiResponse === "" && data) {
+            if (aiResponse === "" && responseData) {
               // Преобразуем весь объект в строку как запасной вариант
-              aiResponse = JSON.stringify(data);
+              aiResponse = JSON.stringify(responseData);
             }
           }
         } catch (jsonError) {
@@ -626,20 +635,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Маршрут для синхронизации настроек с Supabase
   app.post("/api/sync-supabase-settings", async (req, res) => {
     try {
+      console.log("Получен запрос на синхронизацию настроек", req.body);
+      
       // Проверяем, настроен ли Supabase
       if (!isSupabaseConfigured()) {
         return res.status(400).json({
           success: false,
-          error: "Supabase не настроен. Установите переменные окружения SUPABASE_URL и SUPABASE_KEY."
+          message: "Supabase не настроен. Установите переменные окружения SUPABASE_URL и SUPABASE_KEY."
         });
       }
       
       // Получаем текущие настройки
       const settings = await storage.getSettings();
       
-      // Обновляем настройки базы данных
-      settings.database.enabled = true;
-      settings.database.type = "supabase";
+      // Получаем настройки из запроса, если они есть
+      if (req.body && req.body.settings && req.body.settings.database) {
+        const clientSettings = req.body.settings;
+        
+        // Обновляем настройки базы данных из клиентских настроек
+        settings.database = {
+          ...settings.database,
+          ...clientSettings.database,
+          enabled: true,
+          type: "supabase",
+          supabase: {
+            ...settings.database.supabase,
+            ...clientSettings.database.supabase
+          }
+        };
+      } else {
+        // Если нет настроек в запросе, просто устанавливаем тип Supabase
+        settings.database.enabled = true;
+        settings.database.type = "supabase";
+      }
+      
+      console.log("Обновленные настройки для сохранения:", settings);
       
       // Сохраняем обновленные настройки
       const updatedSettings = await storage.updateSettings(settings);
@@ -649,13 +679,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         success: true,
+        message: "Настройки успешно синхронизированы с Supabase",
         settings: updatedSettings
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Ошибка при синхронизации настроек с Supabase:", error);
       res.status(500).json({
         success: false,
-        error: "Произошла ошибка при синхронизации настроек."
+        message: "Произошла ошибка при синхронизации настроек: " + (error.message || "Неизвестная ошибка")
       });
     }
   });
