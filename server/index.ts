@@ -21,6 +21,10 @@ app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 // Добавляем ping/pong для WebSocket
 const PING_INTERVAL = 30000; // 30 секунд
 
+// Определяем режим запуска
+const isVercelEnv = process.env.VERCEL === '1';
+const isLocalMode = process.env.USE_LOCAL_STORAGE === 'true';
+
 // Инициализируем Sentry для отслеживания ошибок
 initSentry();
 
@@ -93,7 +97,7 @@ app.use((req, res, next) => {
   } catch (error) {
     console.error('Ошибка инициализации сервера:', error);
     // В случае ошибки переходим в локальный режим
-    if (!isVercel) {
+    if (!isVercelEnv) {
       process.env.USE_LOCAL_STORAGE = 'true';
       console.log('Переход в локальный режим из-за ошибки');
     }
@@ -125,23 +129,68 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 
-  // WebSocket server setup should be added here.  This requires significant additional code
-  // to handle connections, reconnections, error handling, and message passing.  Example below:
-
-  // const wss = new WebSocketServer({ server, clientTracking: true, path: '/ws' });
-  // wss.on('connection', ws => {
-  //   ws.on('message', message => {
-  //     // Handle incoming messages
-  //   });
-  //   ws.on('close', () => {
-  //     // Handle connection closure
-  //   });
-  //   ws.on('error', error => {
-  //     console.error('WebSocket error:', error);
-  //     // Implement reconnection logic here
-  //   });
-  //   ws.send('Welcome to WebSocket!'); // Send initial message
-  // });
+  // Настройка WebSocket сервера
+  
+  if (!isVercelEnv) {
+    // Локальная настройка WebSocket
+    const wss = new WebSocketServer({ server, clientTracking: true, path: '/ws' });
+    
+    // Хранение активных соединений
+    const clients = new Set<any>();
+    
+    wss.on('connection', (ws) => {
+      console.log('WebSocket подключение установлено');
+      clients.add(ws);
+      
+      // Отправляем приветственное сообщение
+      ws.send(JSON.stringify({ type: 'connection', message: 'Подключено к серверу' }));
+      
+      // Настраиваем интервал для ping/pong
+      const pingInterval = setInterval(() => {
+        if (ws.readyState === ws.OPEN) {
+          ws.ping();
+        }
+      }, PING_INTERVAL);
+      
+      ws.on('message', (message) => {
+        try {
+          const data = JSON.parse(message.toString());
+          console.log('Получено сообщение:', data);
+          
+          // Обработка сообщений
+          if (data.type === 'chat') {
+            // Рассылаем сообщение всем клиентам
+            clients.forEach((client) => {
+              if (client.readyState === ws.OPEN) {
+                client.send(JSON.stringify(data));
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Ошибка обработки сообщения:', error);
+        }
+      });
+      
+      ws.on('close', () => {
+        console.log('WebSocket соединение закрыто');
+        clients.delete(ws);
+        clearInterval(pingInterval);
+      });
+      
+      ws.on('error', (error) => {
+        console.error('WebSocket ошибка:', error);
+        clients.delete(ws);
+        clearInterval(pingInterval);
+      });
+      
+      ws.on('pong', () => {
+        // Обработка pong ответа
+        console.log('Получен pong от клиента');
+      });
+    });
+  } else {
+    console.log('WebSocket не инициализирован в среде Vercel');
+  }
 
 
 
