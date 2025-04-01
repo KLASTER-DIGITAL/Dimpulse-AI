@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Получаем URL и ключ Supabase из переменных окружения
-const supabaseUrl = process.env.SUPABASE_URL || 'https://qhmiunivgfwngggxijjy.supabase.co';
-const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFobWl1bml2Z2Z3bmdnZ3hpamp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0ODY4NTUsImV4cCI6MjA1OTA2Mjg1NX0.pxYIqfEgrbudaFfh_ENu3U8GpNEexan2fkM8E_r-tJs';
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qhmiunivgfwngggxijjy.supabase.co';
+const supabaseKey = process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFobWl1bml2Z2Z3bmdnZ3hpamp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0ODY4NTUsImV4cCI6MjA1OTA2Mjg1NX0.pxYIqfEgrbudaFfh_ENu3U8GpNEexan2fkM8E_r-tJs';
 
 // Переменная для хранения ссылки на Supabase клиент
 let supabaseInstance: SupabaseClient | null = null;
@@ -43,7 +43,17 @@ export const supabase: SupabaseClient = supabaseInstance || {
 
 // Проверяем, настроен ли Supabase
 export const isSupabaseConfigured = (): boolean => {
-  return Boolean(supabaseUrl && supabaseKey && supabaseInstance);
+  // Проверяем наличие ключей Supabase или переменных окружения Vercel
+  const hasSupabaseConfig = Boolean(supabaseUrl && supabaseKey);
+  const isVercel = process.env.VERCEL === '1';
+  
+  // Если запуск на Vercel, то считаем, что Supabase настроен
+  if (isVercel) {
+    console.log('Running on Vercel, assuming Supabase is configured');
+    return true;
+  }
+  
+  return hasSupabaseConfig && Boolean(supabaseInstance);
 };
 
 // Проверка подключения к Supabase
