@@ -47,6 +47,7 @@
     "express-session": "^1.18.1",
     "helmet": "^8.1.0",
     "helmet-csp": "^4.0.0",
+    "lucide-react": "^0.486.0",
     "memorystore": "^1.6.7",
     "node-fetch": "^3.3.2",
     "passport": "^0.7.0",
