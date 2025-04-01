@@ -13,6 +13,8 @@
     "start:dev": "npm run dev",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
+    "vercel-build": "npm run build",
+    "vercel-install": "npm install",
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "git:push": "git-auto-push",

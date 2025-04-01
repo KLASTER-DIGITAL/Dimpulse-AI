@@ -63,20 +63,38 @@ npm run build
 
 #### Вариант 2: Деплой на Vercel
 
-1. Установите Vercel CLI:
+1. Убедитесь, что все изменения отправлены в GitHub:
+```bash
+git add .
+git commit -m "Подготовка к деплою в Vercel" --no-verify
+git push origin main
+```
+
+2. Установите Vercel CLI:
 ```bash
 npm install -g vercel
 ```
 
-2. Выполните деплой:
+3. Выполните деплой с помощью CLI:
 ```bash
 vercel
 ```
 
-3. Для продакшен-деплоя:
+4. Для продакшен-деплоя:
 ```bash
 vercel --prod
 ```
+
+5. Настройка переменных окружения в Vercel:
+   - Перейдите в панель управления Vercel
+   - Выберите ваш проект
+   - Перейдите в раздел Settings -> Environment Variables
+   - Добавьте следующие переменные:
+     - `SUPABASE_URL` - URL вашего проекта Supabase
+     - `SUPABASE_KEY` - Ключ API вашего проекта Supabase
+     - `USE_LOCAL_STORAGE` - Установите `false` для использования Supabase
+
+6. После деплоя проверьте логи в панели Vercel для выявления возможных ошибок.
 
 ## Структура проекта
 
