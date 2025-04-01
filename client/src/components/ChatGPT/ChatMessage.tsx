@@ -2,15 +2,17 @@ import React, { useMemo, useEffect, useRef } from "react";
 import { Message } from "@shared/schema";
 import MarkdownRenderer from "./MarkdownRenderer";
 import TypingAnimation from "./TypingAnimation";
+import { FiFile, FiImage } from "react-icons/fi";
 
 interface ChatMessageProps {
-  message: Message & { typing?: boolean };
+  message: Message & { typing?: boolean, file?: { name: string, type: string, size: number, url: string } };
 }
 
 const ChatMessage = ({ message }: ChatMessageProps) => {
   const isUser = message.role === "user";
   const isTyping = message.typing === true || message.content === "typing";
   const htmlContentRef = useRef<HTMLDivElement>(null);
+  const hasAttachment = !!message.file;
   
   // Check if the message content contains HTML/iframe or special script content
   const containsHtml = useMemo(() => {
@@ -85,6 +87,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         <div 
           ref={htmlContentRef}
           className="html-content w-full" 
+          style={{ height: 'auto', minHeight: '500px' }}
           dangerouslySetInnerHTML={{ __html: message.content }}
         />
       );
@@ -96,6 +99,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         <div 
           ref={htmlContentRef}
           className="html-content w-full" 
+          style={{ height: 'auto', minHeight: '500px' }}
           dangerouslySetInnerHTML={{ __html: message.content }}
         />
       );
@@ -113,19 +117,51 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
     <div className={`message ${isUser ? "user-message" : "assistant-message"} chat-message mb-6`}>
       {isUser ? (
         <div className="flex justify-end mb-4">
-          <div className="user-message bg-gray-800 rounded-full py-2 px-4 max-w-[80%] text-white shadow-sm">
+          <div className="user-message bg-gray-800 rounded-full py-2 px-3 sm:px-4 max-w-[90%] sm:max-w-[80%] text-white shadow-sm text-sm sm:text-base">
             {message.content}
+            {hasAttachment && (
+              <div className="mt-2 file-attachment w-full break-words">
+                {message.file?.type?.startsWith('image/') ? (
+                  <div className="mt-2 relative">
+                    <div className="image-preview-container relative">
+                      <img 
+                        src={message.file?.url || ''} 
+                        alt={message.file?.name || 'Attached file'} 
+                        className="rounded-md max-h-40 sm:max-h-60 max-w-full object-contain" 
+                      />
+                      <div className="absolute bottom-0 right-0 bg-gray-900 text-xs text-white px-2 py-1 rounded-md opacity-80">
+                        {message.file?.name || 'Unknown'} • {formatFileSize(message.file?.size || 0)}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 sm:gap-2 p-2 bg-gray-700 rounded-md overflow-hidden">
+                    <FiFile className="text-blue-400 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm truncate">{message.file?.name || 'Unknown file'}</span>
+                    <span className="text-xs text-gray-300 flex-shrink-0">{formatFileSize(message.file?.size || 0)}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ) : (
         <div className="flex items-start w-full">
-          <div className={`assistant-message flex-1 text-white p-3 rounded-lg ${containsHtml ? 'w-full' : ''}`}>
+          <div className={`assistant-message flex-1 text-white p-2 sm:p-3 rounded-lg text-sm sm:text-base ${containsHtml ? 'w-full' : ''}`}>
             {renderContent()}
           </div>
         </div>
       )}
     </div>
   );
+};
+
+// Helper function to format file size
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return bytes + ' B';
+  else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  else return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
 };
 
 export default ChatMessage;

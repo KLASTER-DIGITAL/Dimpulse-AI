@@ -22,12 +22,20 @@ export const messages = pgTable("messages", {
   role: text("role").notNull(), // 'user' or 'assistant'
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  fileUrl: text("file_url"),
+  fileName: text("file_name"),
+  fileType: text("file_type"),
+  fileSize: integer("file_size"),
 });
 
 export const insertMessageSchema = createInsertSchema(messages).pick({
   chatId: true,
   role: true,
   content: true,
+  fileUrl: true,
+  fileName: true,
+  fileType: true,
+  fileSize: true,
 });
 
 export const chats = pgTable("chats", {
@@ -48,7 +56,14 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
-export type Message = typeof messages.$inferSelect;
+export type Message = typeof messages.$inferSelect & {
+  file?: {
+    url: string;
+    name: string;
+    type: string;
+    size: number;
+  };
+};
 
 export type InsertChat = z.infer<typeof insertChatSchema>;
 export type Chat = typeof chats.$inferSelect;

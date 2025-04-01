@@ -1,0 +1,2 @@
+{"error":{"address":"0.0.0.0","code":"EADDRINUSE","errno":-48,"port":3002,"syscall":"listen"},"level":"error","message":"Необработанное исключение","service":"dimpulse-ai","timestamp":"2025-04-01 13:47:43"}
+{"error":{"address":"0.0.0.0","code":"EADDRINUSE","errno":-48,"port":3002,"syscall":"listen"},"level":"error","message":"Необработанное исключение","service":"dimpulse-ai","timestamp":"2025-04-01 13:52:33"}

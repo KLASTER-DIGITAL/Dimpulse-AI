@@ -3,8 +3,8 @@ import { Request, Response, NextFunction } from 'express';
 import type { User } from '@shared/schema';
 import { storage } from './storage';
 
-// Создаем административного пользователя при запуске
-(async function createAdminUser() {
+// Функция для создания административного пользователя
+export async function createAdminUser() {
   try {
     console.log('Creating admin user...');
     let adminUser = await storage.getUserByUsername('admin');
@@ -19,10 +19,12 @@ import { storage } from './storage';
     } else {
       console.log('Admin user already exists');
     }
+    return true;
   } catch (error) {
     console.error('Error creating admin user:', error);
+    return false;
   }
-})();
+}
 
 /**
  * Аутентификация пользователя

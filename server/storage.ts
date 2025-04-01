@@ -67,10 +67,13 @@ export class MemStorage implements IStorage {
           width: 400,
           height: 500,
           text: "Чем могу помочь?",
+          buttonColor: "#4b6cf7",
+          pulsation: true,
         },
       },
       ui: {
         enabled: true,
+        colorSchemeEnabled: false,
         colors: {
           primary: "#19c37d",
           secondary: "#f9fafb",
@@ -300,7 +303,12 @@ export class MemStorage implements IStorage {
     const newMessage: Message = { 
       ...message, 
       id, 
-      createdAt: new Date() 
+      createdAt: new Date(),
+      // Добавляем обязательные поля со значением null если их нет
+      fileUrl: message.fileUrl || null,
+      fileName: message.fileName || null,
+      fileType: message.fileType || null,
+      fileSize: message.fileSize || null
     };
     
     const chatMessages = this.messages.get(message.chatId) || [];
@@ -433,6 +441,15 @@ const memStorage = new MemStorage();
 export async function initStorage() {
   // Загружаем настройки из MemStorage
   const settings = await memStorage.getSettings();
+  
+  // Проверяем режим запуска
+  const isLocalMode = process.env.USE_LOCAL_STORAGE === 'true';
+  
+  if (isLocalMode) {
+    console.log('Running in local mode, using in-memory storage');
+    storageInstance = memStorage;
+    return storageInstance;
+  }
   
   // Проверяем настройки для определения типа хранилища и наличие Supabase ключей
   const supabaseEnabled = isSupabaseConfigured();

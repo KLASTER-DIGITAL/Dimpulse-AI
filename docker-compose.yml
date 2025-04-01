@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dimpulse-ai
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - dimpulse-network
+
+  # Для локальной разработки можно добавить Supabase
+  # supabase:
+  #   image: supabase/supabase-local
+  #   ports:
+  #     - "54321:54321"
+  #   environment:
+  #     - POSTGRES_PASSWORD=postgres
+  #   volumes:
+  #     - supabase-data:/var/lib/postgresql/data
+  #   networks:
+  #     - dimpulse-network
+
+networks:
+  dimpulse-network:
+    driver: bridge
+
+volumes:
+  supabase-data:

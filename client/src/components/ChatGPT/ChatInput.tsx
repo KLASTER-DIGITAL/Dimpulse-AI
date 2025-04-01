@@ -312,8 +312,8 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
   };
   
   return (
-    <div className="p-4 fixed bottom-0 left-0 right-0 z-10 bg-black bg-opacity-90 backdrop-blur-sm">
-      <div className="max-w-3xl mx-auto">
+    <div className="p-2 sm:p-3 md:p-4 fixed bottom-0 left-0 right-0 z-10 bg-black bg-opacity-90 backdrop-blur-sm">
+      <div className="w-full max-w-3xl mx-auto">
         {/* Отображение прикрепленных файлов */}
         {uploadedFiles.length > 0 && (
           <div className="bg-[#202020] rounded-md mb-2 p-2 relative">
@@ -330,7 +330,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
               {uploadedFiles.map((file, index) => (
                 <div key={index} className="flex items-center">
                   {file.type.startsWith('image/') && file.preview ? (
-                    <div className="w-16 h-16 mr-3 rounded-md overflow-hidden">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 mr-2 sm:mr-3 rounded-md overflow-hidden">
                       <img 
                         src={file.preview} 
                         alt={file.name}
@@ -338,7 +338,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
                       />
                     </div>
                   ) : (
-                    <div className="w-16 h-16 flex items-center justify-center mr-3 bg-[#2b2b2b] rounded-md">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center mr-2 sm:mr-3 bg-[#2b2b2b] rounded-md">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                         <polyline points="14 2 14 8 20 8"></polyline>
@@ -405,6 +405,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
                 accept=".txt,.json,.md,.jpg,.jpeg,.png,.pdf"
                 onChange={handleFileChange}
                 disabled={isLoading}
+                capture="environment"
               />
             </button>
             
@@ -413,7 +414,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
               type="text" 
               name="message"
               placeholder="Чем еще могу помочь..."
-              className="flex-1 bg-transparent text-white border-none px-4 py-3 focus:outline-none rounded-full"
+              className="flex-1 bg-transparent text-white text-sm sm:text-base border-none px-3 sm:px-4 py-2 sm:py-3 focus:outline-none rounded-full"
               disabled={isLoading || isRecording}
               ref={inputRef}
               value={message}
@@ -426,7 +427,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
             {/* Кнопка отправки голосового сообщения */}
             <button 
               type="button" 
-              className={`primary p-2 rounded-full ${isRecording ? 'text-red-500' : 'text-gray-400 hover:text-white'} focus:outline-none`}
+              className={`primary p-1 sm:p-2 rounded-full ${isRecording ? 'text-red-500' : 'text-gray-400 hover:text-white'} focus:outline-none`}
               onClick={toggleVoiceRecording}
               disabled={isLoading}
             >
@@ -441,7 +442,7 @@ const ChatInput = ({ onSendMessage, onVoiceInput, onFileUpload, isLoading }: Cha
             <button 
               type="submit" 
               id="send-button"
-              className="primary p-2 rounded-full text-gray-400 hover:text-white disabled:hover:text-gray-500 disabled:opacity-40 focus:outline-none"
+              className="primary p-1 sm:p-2 rounded-full text-gray-400 hover:text-white disabled:hover:text-gray-500 disabled:opacity-40 focus:outline-none"
               disabled={((!message.trim() || (!message.trim() && uploadedFiles.length > 0)) && !isRecording) || isLoading}
               title={uploadedFiles.length > 0 && !message.trim() ? "Необходимо добавить текстовое сообщение" : "Отправить сообщение"}
             >

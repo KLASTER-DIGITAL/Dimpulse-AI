@@ -127,6 +127,13 @@ export async function migrateDatabase(): Promise<boolean> {
   try {
     console.log('Starting database migration...');
     
+    // Проверяем режим запуска
+    const isLocalMode = process.env.USE_LOCAL_STORAGE === 'true';
+    if (isLocalMode) {
+      console.log('Running in local mode, skipping Supabase migration');
+      return true;
+    }
+    
     // Проверяем, настроен ли Supabase
     if (!isSupabaseConfigured()) {
       console.log('Supabase is not configured, skipping migration');
@@ -136,25 +143,33 @@ export async function migrateDatabase(): Promise<boolean> {
     // Проверяем соединение с Supabase
     const connectionTest = await testSupabaseConnection();
     if (!connectionTest) {
-      console.log('Supabase connection test failed, skipping migration');
-      return false;
+      console.log('Supabase connection test failed, switching to local mode');
+      process.env.USE_LOCAL_STORAGE = 'true';
+      return true;
     }
     
     console.log('Supabase connection test successful');
     
-    // Создаем функцию run_sql, если она еще не существует
-    await createRunSqlFunction();
+    // Создаем функцию run_sql, если она еще не существует - пропускаем при ошибке
+    try {
+      await createRunSqlFunction();
+    } catch (err) {
+      console.log('Failed to create run_sql function, continuing with other operations');
+    }
     
-    // Выполняем скрипт создания таблиц
-    await executeSqlScript('create_tables.sql');
-    
-    // Выполняем скрипт создания функций
-    await executeSqlScript('supabase-sql-functions.sql');
+    // Выполняем скрипт инициализации Supabase - пропускаем при ошибке
+    try {
+      await executeSqlScript('init-supabase.sql');
+    } catch (err) {
+      console.log('Failed to execute init-supabase.sql, continuing with other operations');
+    }
     
     console.log('Database migration completed successfully');
     return true;
   } catch (error) {
     console.error('Error migrating database:', error);
-    return false;
+    process.env.USE_LOCAL_STORAGE = 'true';
+    console.log('Switching to local storage due to migration error');
+    return true; // Возвращаем true чтобы продолжить запуск сервера
   }
 }

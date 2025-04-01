@@ -77,7 +77,17 @@ const UIStyleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) 
   }, []);
   
   useEffect(() => {
-    if (!settings?.ui.enabled || !styleElement) return;
+    // Проверяем наличие настроек и элемента стиля
+    if (!settings || !styleElement) {
+      console.log('Нет настроек или элемента стиля', { settings, styleElement });
+      return;
+    }
+    
+    // Проверяем наличие настроек UI
+    if (!settings.ui || settings.ui.enabled === false) {
+      console.log('Настройки UI отключены или отсутствуют', settings.ui);
+      return;
+    }
     
     // Выбираем настройки типографики в зависимости от типа устройства
     const typography = isMobile 
@@ -87,99 +97,130 @@ const UIStyleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) 
     // Создаем CSS правила
     const rules = [];
     
-    // Применяем цвета
-    if (settings.ui.colors) {
-      rules.push(`
-        :root {
-          --primary-color: ${settings.ui.colors.primary};
-          --secondary-color: ${settings.ui.colors.secondary};
-          --accent-color: ${settings.ui.colors.accent};
-        }
-      `);
+    try {
+      // Применяем цвета
+      if (settings.ui.colors && 
+          settings.ui.colors.primary && 
+          settings.ui.colors.secondary && 
+          settings.ui.colors.accent) {
+        rules.push(`
+          :root {
+            --primary-color: ${settings.ui.colors.primary};
+            --secondary-color: ${settings.ui.colors.secondary};
+            --accent-color: ${settings.ui.colors.accent};
+          }
+        `);
+      } else {
+        console.log('Отсутствуют необходимые цвета в настройках', settings.ui.colors);
+      }
+    } catch (error) {
+      console.error('Ошибка при применении цветов:', error);
     }
     
     // Применяем глобальные стили типографики
-    if (typography) {
-      const selector = isMobile ? '.chat-container, .chat-message' : 'body, .chat-container, .chat-message';
-      
-      if (typography.fontSize) {
-        rules.push(`
-          ${selector} {
-            font-size: ${typography.fontSize}px;
-          }
-        `);
+    try {
+      if (typography) {
+        const selector = isMobile ? '.chat-container, .chat-message' : 'body, .chat-container, .chat-message';
+        
+        if (typography.fontSize && typeof typography.fontSize === 'number') {
+          rules.push(`
+            ${selector} {
+              font-size: ${typography.fontSize}px;
+            }
+          `);
+        }
+        
+        if (typography.fontFamily && typeof typography.fontFamily === 'string') {
+          rules.push(`
+            ${selector} {
+              font-family: ${typography.fontFamily};
+            }
+          `);
+        }
+        
+        if (typography.spacing && typeof typography.spacing === 'number') {
+          rules.push(`
+            ${selector} {
+              line-height: ${typography.spacing};
+            }
+          `);
+        }
       }
-      
-      if (typography.fontFamily) {
-        rules.push(`
-          ${selector} {
-            font-family: ${typography.fontFamily};
-          }
-        `);
-      }
-      
-      if (typography.spacing) {
-        rules.push(`
-          ${selector} {
-            line-height: ${typography.spacing};
-          }
-        `);
-      }
+    } catch (error) {
+      console.error('Ошибка при применении стилей типографики:', error);
     }
     
     // Стили элементов
-    if (settings.ui.elements) {
-      if (settings.ui.elements.roundedCorners) {
-        rules.push(`
-          .chat-message, .chat-input, button {
-            border-radius: 8px;
+    try {
+      if (settings.ui.elements) {
+        // Скругленные углы
+        if (typeof settings.ui.elements.roundedCorners === 'boolean') {
+          if (settings.ui.elements.roundedCorners) {
+            rules.push(`
+              .chat-message, .chat-input, button {
+                border-radius: 8px;
+              }
+            `);
+          } else {
+            rules.push(`
+              .chat-message, .chat-input, button {
+                border-radius: 0;
+              }
+            `);
           }
-        `);
-      } else {
-        rules.push(`
-          .chat-message, .chat-input, button {
-            border-radius: 0;
+        }
+        
+        // Тени
+        if (typeof settings.ui.elements.shadows === 'boolean') {
+          if (settings.ui.elements.shadows) {
+            rules.push(`
+              .chat-message, .chat-input, button {
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+              }
+            `);
+          } else {
+            rules.push(`
+              .chat-message, .chat-input, button {
+                box-shadow: none;
+              }
+            `);
           }
-        `);
+        }
+        
+        // Анимации
+        if (typeof settings.ui.elements.animations === 'boolean') {
+          if (settings.ui.elements.animations) {
+            rules.push(`
+              button, .chat-input {
+                transition: all 0.2s ease;
+              }
+              button:hover {
+                transform: translateY(-2px);
+              }
+            `);
+          } else {
+            rules.push(`
+              button, .chat-input {
+                transition: none;
+              }
+              button:hover {
+                transform: none;
+              }
+            `);
+          }
+        }
       }
-      
-      if (settings.ui.elements.shadows) {
-        rules.push(`
-          .chat-message, .chat-input, button {
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          }
-        `);
-      } else {
-        rules.push(`
-          .chat-message, .chat-input, button {
-            box-shadow: none;
-          }
-        `);
-      }
-      
-      if (settings.ui.elements.animations) {
-        rules.push(`
-          button, .chat-input {
-            transition: all 0.2s ease;
-          }
-          button:hover {
-            transform: translateY(-2px);
-          }
-        `);
-      } else {
-        rules.push(`
-          button, .chat-input {
-            transition: none;
-          }
-          button:hover {
-            transform: none;
-          }
-        `);
-      }
+    } catch (error) {
+      console.error('Ошибка при применении стилей элементов:', error);
     }
     
     // Устанавливаем все стили
-    styleElement.textContent = rules.join('\n');
+    try {
+      styleElement.textContent = rules.join('\n');
+      console.log('Стили успешно применены');
+    } catch (error) {
+      console.error('Ошибка при установке стилей:', error);
+    }
     
   }, [settings, isMobile, styleElement]);
   

@@ -1,0 +1,42 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run linting
+      run: npm run lint
+
+    - name: Run type checking
+      run: npm run check
+
+    - name: Run tests
+      run: npm test
+
+    - name: Build
+      run: npm run build
+
+    # Добавьте этот шаг, если вы хотите автоматически деплоить на сервер
+    # - name: Deploy
+    #   if: github.ref == 'refs/heads/main'
+    #   run: |
+    #     # Добавьте команды для деплоя
+    #     echo "Deploying to production server"

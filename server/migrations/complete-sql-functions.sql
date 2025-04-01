@@ -1,4 +1,4 @@
--- SQL функции для работы с данными в Supabase
+-- Полный набор SQL-функций для работы с данными в Supabase
 
 -- Вспомогательные функции для статистики
 
@@ -92,6 +92,8 @@ BEGIN
     LIMIT top_count;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Основные функции для работы с данными
 
 -- Получение статистики
 CREATE OR REPLACE FUNCTION get_stats()

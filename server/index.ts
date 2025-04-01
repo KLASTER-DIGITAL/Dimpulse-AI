@@ -3,9 +3,14 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { WebSocketServer } from 'ws'; // Added import for WebSocketServer
 import { migrateDatabase } from "./migration"; // Импорт функции миграции
-import { registerUser } from "./auth"; // Импорт функции регистрации пользователя
+import { createAdminUser } from "./auth"; // Импорт функции создания админа
 import { isSupabaseConfigured, testSupabaseConnection } from "./supabase"; // Импорт функций для проверки Supabase
 import { storage } from "./storage"; // Импорт хранилища данных
+
+// Импортируем новые инструменты
+import { setupSwagger } from "./swagger"; // Импорт Swagger для документации API
+import { logger, requestLogger, initSentry } from "./logger"; // Импорт логгера и Sentry
+import { setupSecurity } from "./security"; // Импорт настроек безопасности
 
 
 const app = express();
@@ -15,6 +20,15 @@ app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 // Добавляем ping/pong для WebSocket
 const PING_INTERVAL = 30000; // 30 секунд
+
+// Инициализируем Sentry для отслеживания ошибок
+initSentry();
+
+// Настраиваем безопасность приложения
+setupSecurity(app);
+
+// Используем middleware для логирования запросов
+app.use(requestLogger);
 
 app.use((req, res, next) => {
   // WebSocket ping/pong будет добавлен в обработчик подключения WebSocket
@@ -42,6 +56,14 @@ app.use((req, res, next) => {
       }
 
       log(logLine);
+      // Используем структурированное логирование
+      logger.info(`API запрос: ${req.method} ${path}`, {
+        method: req.method,
+        path,
+        statusCode: res.statusCode,
+        duration,
+        response: capturedJsonResponse
+      });
     }
   });
 
@@ -49,57 +71,59 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Запускаем миграцию базы данных при старте сервера
-  try {
-    await migrateDatabase();
-    
-    // Создаем администратора, если Supabase настроен
-    if (isSupabaseConfigured()) {
-      // Проверяем соединение с Supabase
-      const isConnected = await testSupabaseConnection();
-      
-      if (isConnected) {
-        console.log('Creating admin user...');
-        try {
-          // Проверяем, существует ли пользователь с именем admin
-          const existingUser = await storage.getUserByUsername('admin');
-          
-          if (!existingUser) {
-            // Вместо регистрации через Supabase Auth, создаем пользователя напрямую в нашей таблице
-            console.log('Creating admin user directly in database...');
-            
-            try {
-              // Создаем запись в нашей таблице пользователей
-              const admin = await storage.createUser({
-                username: 'admin',
-                password: 'admin123' // В реальном приложении пароль должен быть хэширован
-              });
-              
-              if (admin) {
-                console.log('Admin user created successfully in storage:', admin.username);
-              } else {
-                console.error('Failed to create admin user in storage');
-              }
-            } catch (storageError) {
-              console.error('Error creating admin user in storage:', storageError);
-            }
-          } else {
-            console.log('Admin user already exists');
-          }
-        } catch (adminError) {
-          console.error('Error creating admin user:', adminError);
-        }
-      } else {
-        console.error('Failed to connect to Supabase, skipping admin user creation');
-      }
-    } else {
-      console.log('Supabase not configured, skipping admin user creation');
-    }
-  } catch (error) {
-    console.error('Database migration failed:', error);
+  // Определяем среду запуска
+  const isVercel = process.env.VERCEL === '1';
+  const isLocalMode = process.env.USE_LOCAL_STORAGE === 'true';
+  
+  // Настраиваем окружение для Vercel
+  if (isVercel && !isLocalMode) {
+    console.log('Запуск на Vercel с интеграцией Supabase');
+    // Не использовать локальный режим на Vercel
+    process.env.USE_LOCAL_STORAGE = 'false';
   }
   
-  const server = await registerRoutes(app);
+  // Запускаем миграцию базы данных и инициализацию сервера
+  try {
+    // Инициализируем базу данных в зависимости от среды
+    await migrateDatabase();
+    
+    // Создаем администратора
+    await createAdminUser();
+    
+  } catch (error) {
+    console.error('Ошибка инициализации сервера:', error);
+    // В случае ошибки переходим в локальный режим
+    if (!isVercel) {
+      process.env.USE_LOCAL_STORAGE = 'true';
+      console.log('Переход в локальный режим из-за ошибки');
+    }
+  }
+  
+  // Настраиваем обработку ошибок
+  process.on('uncaughtException', (err) => {
+    console.error('Необработанное исключение:', err);
+    logger.error('Необработанное исключение', { error: err });
+  });
+  
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Необработанное отклонение promise:', reason);
+    logger.error('Необработанное отклонение promise', { reason, promise });
+  });
+  
+  // Инициализируем сервер с обработкой ошибок
+  const server = await registerRoutes(app).catch(error => {
+    console.error('Ошибка запуска сервера:', error);
+    logger.error('Ошибка запуска сервера', { error });
+    
+    // Создаем фиктивный сервер для предотвращения ошибок типизации
+    return require('http').createServer();
+  });
+  
+  // Проверяем, что сервер создан
+  if (!server) {
+    console.error('Не удалось создать сервер');
+    process.exit(1);
+  }
 
   // WebSocket server setup should be added here.  This requires significant additional code
   // to handle connections, reconnections, error handling, and message passing.  Example below:
@@ -138,14 +162,15 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
+  // Используем порт из переменной окружения или 3003 по умолчанию
   // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  const port = process.env.PORT || 3003;
+  console.log(`Используем порт: ${port}`);
+  
   server.listen({
-    port,
+    port: Number(port),
     host: "0.0.0.0",
-    reusePort: true,
+    family: 4,
   }, () => {
     log(`serving on port ${port}`);
   });

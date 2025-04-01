@@ -417,9 +417,13 @@ const Cabinet = () => {
         }
       });
 
+      // Проверяем наличие сообщения в ответе
+      const message = result.message || 
+        (result.success ? 'Настройки успешно синхронизированы с Supabase' : 'Ошибка при синхронизации настроек');
+      
       setSyncStatus({
         success: result.success,
-        message: result.message
+        message: message
       });
       
       if (result.success && result.settings) {

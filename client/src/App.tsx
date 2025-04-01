@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
@@ -102,15 +101,21 @@ function App() {
         ws.onclose = (event) => {
           console.log('WebSocket closed:', event.code, event.reason);
           if (reconnectAttempts < maxReconnectAttempts) {
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
             reconnectAttempts++;
-            reconnectTimeout = setTimeout(connect, delay);
+            console.log(`Reconnecting in ${reconnectDelay}ms...`);
+            reconnectTimeout = setTimeout(connect, reconnectDelay);
+          } else {
+            console.log('Max reconnect attempts reached');
           }
         };
 
         ws.onerror = (error) => {
           console.error('WebSocket error:', error);
-          ws?.close();
+        };
+
+        ws.onmessage = (event) => {
+          // Handle incoming messages
+          console.log('Received message:', event.data);
         };
       } catch (error) {
         console.error('WebSocket connection error:', error);
@@ -131,8 +136,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <UIStyleProvider>
         <Router />
-        <Toaster />
       </UIStyleProvider>
+      <Toaster />
     </QueryClientProvider>
   );
 }
